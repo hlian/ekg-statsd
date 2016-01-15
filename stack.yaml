@@ -1,0 +1,12 @@
+resolver: lts-4.1
+extra-deps: []
+flags: {}
+extra-package-dbs: []
+
+packages:
+- '.'
+- examples/
+- location:
+    git: git@github.com:hlian/ekg-core
+    commit: 600aec7171daaec8419cfb7c3bbe3dd70764fdb9 # the hl-timers branch
+  extra-dep: true

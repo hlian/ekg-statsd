@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This module lets you periodically flush metrics to a statsd
 -- backend. Example usage:
@@ -167,6 +166,9 @@ diffSamples prev curr = M.foldlWithKey' combine M.empty curr
     diffMetric (Metrics.Gauge n1) (Metrics.Gauge n2)
         | n1 == n2  = Nothing
         | otherwise = Just $ Metrics.Gauge n2
+    diffMetric (Metrics.Timer n1) (Metrics.Timer n2)
+        | n1 == n2  = Nothing
+        | otherwise = Just $ Metrics.Timer n2
     diffMetric (Metrics.Label n1) (Metrics.Label n2)
         | n1 == n2  = Nothing
         | otherwise = Just $ Metrics.Label n2
@@ -174,14 +176,16 @@ diffSamples prev curr = M.foldlWithKey' combine M.empty curr
     diffMetric _ _  = Nothing
 
 flushSample :: Metrics.Sample -> Socket.Socket -> StatsdOptions -> IO ()
-flushSample sample socket opts = do
-    forM_ (M.toList $ sample) $ \ (name, val) ->
-        let fullName = dottedPrefix <> name <> dottedSuffix
-        in  flushMetric fullName val
+flushSample sample socket opts =
+  forM_ (M.toList sample) $ \ (name, val) ->
+      let fullName = dottedPrefix <> name <> dottedSuffix
+      in  flushMetric fullName val
   where
-    flushMetric name (Metrics.Counter n) = send "|c" name (show n)
-    flushMetric name (Metrics.Gauge n)   = send "|g" name (show n)
-    flushMetric _ _                      = return ()
+    flushMetric name (Metrics.Counter n)   = send "|c" name (show n)
+    flushMetric name (Metrics.Gauge n)     = send "|g" name (show n)
+    flushMetric name (Metrics.Timer n)     = send "|ms" name (show n)
+    flushMetric _ (Metrics.Label _)        = return ()
+    flushMetric _ (Metrics.Distribution _) = return ()
 
     isDebug = debug opts
     dottedPrefix = if T.null (prefix opts) then "" else prefix opts <> "."
